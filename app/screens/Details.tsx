@@ -4,6 +4,7 @@ import {
   Button,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -27,6 +28,8 @@ const Details = () => {
   const [address, setAddress] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -72,25 +75,25 @@ const Details = () => {
     }
   };
 
-  const handleUpdateUser = async () => {
-    if (!name.trim() || !address.trim()) {
-      Alert.alert("Error", "Please enter both name and address.");
-      return;
-    }
+  // const handleUpdateUser = async () => {
+  //   if (!name.trim() || !address.trim()) {
+  //     Alert.alert("Error", "Please enter both name and address.");
+  //     return;
+  //   }
 
-    try {
-      await updateDoc(doc(FIREBASE_DB, "users", "<DOCUMENT_ID>"), {
-        name: name,
-        address: address,
-      });
-      Alert.alert("Success", "User updated successfully!");
-      setName(""); // Clear the input after successful update
-      setAddress("");
-    } catch (e) {
-      console.error("Error updating document: ", e);
-      Alert.alert("Error", "Error updating user in database.");
-    }
-  };
+  //   try {
+  //     await updateDoc(doc(FIREBASE_DB, "users", "<DOCUMENT_ID>"), {
+  //       name: name,
+  //       address: address,
+  //     });
+  //     Alert.alert("Success", "User updated successfully!");
+  //     setName(""); // Clear the input after successful update
+  //     setAddress("");
+  //   } catch (e) {
+  //     console.error("Error updating document: ", e);
+  //     Alert.alert("Error", "Error updating user in database.");
+  //   }
+  // };
 
   const handleDeleteUser = async (userId) => {
     setIsLoading(true);
@@ -103,6 +106,29 @@ const Details = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleUpdateUser = async () => {
+    setIsLoading(true);
+    try {
+      await updateDoc(doc(FIREBASE_DB, "users", selectedUserId), {
+        name: name,
+        address: address,
+      });
+      setIsModalVisible(false); // Close the modal after successful update
+      fetchUsers(); // Fetch users again to update the list
+    } catch (error) {
+      console.error("Error updating document: ", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openEditModal = (userId, userName, userAddress) => {
+    setSelectedUserId(userId);
+    setName(userName);
+    setAddress(userAddress);
+    setIsModalVisible(true);
   };
 
   return (
@@ -140,17 +166,56 @@ const Details = () => {
             <View style={styles.userItem}>
               <Text>{item.name}</Text>
               <Text>{item.address}</Text>
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDeleteUser(item.id)}
-              >
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
+              <View style={styles.actionsContainer}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() =>
+                    openEditModal(item.id, item.name, item.address)
+                  }
+                >
+                  <Text>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={() => handleDeleteUser(item.id)}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
           keyExtractor={(item) => item.id}
         />
       )}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <TextInput
+              style={styles.input}
+              placeholder="Name"
+              autoCapitalize="none"
+              onChangeText={setName}
+              value={name}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Address"
+              autoCapitalize="none"
+              onChangeText={setAddress}
+              value={address}
+            />
+            <View style={styles.modalButtonsContainer}>
+              <Button title="Update" onPress={handleUpdateUser} />
+              <Button title="Cancel" onPress={() => setIsModalVisible(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -189,5 +254,32 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: "white",
+  },
+  actionsContainer: {
+    flexDirection: "row",
+  },
+  actionButton: {
+    padding: 10,
+    borderRadius: 5,
+    marginHorizontal: 5,
+    backgroundColor: "#ccc",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+
+  modalContent: {
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 8,
+    width: "80%",
+  },
+  modalButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginTop: 20,
   },
 });
