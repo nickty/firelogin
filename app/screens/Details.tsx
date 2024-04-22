@@ -2,19 +2,51 @@ import {
   ActivityIndicator,
   Alert,
   Button,
+  FlatList,
   KeyboardAvoidingView,
   StyleSheet,
+  Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
-import React, { useState } from "react";
-import { doc, setDoc, collection, addDoc, updateDoc } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import {
+  doc,
+  setDoc,
+  collection,
+  addDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
 import { FIREBASE_DB } from "../../FirebaseConfig";
 
 const Details = () => {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const querySnapshot = await getDocs(collection(FIREBASE_DB, "users"));
+      const fetchedUsers = [];
+      querySnapshot.forEach((doc) => {
+        fetchedUsers.push({ id: doc.id, ...doc.data() });
+      });
+      setUsers(fetchedUsers);
+    } catch (error) {
+      console.error("Error fetching users: ", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAddUser = async () => {
     if (!name.trim() || !address.trim()) {
@@ -60,6 +92,19 @@ const Details = () => {
     }
   };
 
+  const handleDeleteUser = async (userId) => {
+    setIsLoading(true);
+    try {
+      await deleteDoc(doc(FIREBASE_DB, "users", userId));
+      // Update the local state to reflect the changes
+      setUsers(users.filter((user) => user.id !== userId));
+    } catch (error) {
+      console.error("Error removing document: ", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView style={styles.container}>
       <TextInput
@@ -82,11 +127,28 @@ const Details = () => {
         <Button title="Update User" onPress={handleUpdateUser} />
       </View>
 
-      {isLoading && (
+      {isLoading ? (
         <ActivityIndicator
           style={styles.loadingIndicator}
           size="large"
           color="#0000ff"
+        />
+      ) : (
+        <FlatList
+          data={users}
+          renderItem={({ item }) => (
+            <View style={styles.userItem}>
+              <Text>{item.name}</Text>
+              <Text>{item.address}</Text>
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => handleDeleteUser(item.id)}
+              >
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          keyExtractor={(item) => item.id}
         />
       )}
     </KeyboardAvoidingView>
@@ -114,5 +176,18 @@ const styles = StyleSheet.create({
   },
   loadingIndicator: {
     marginTop: 20,
+  },
+  userItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+  },
+  deleteButton: {
+    padding: 10,
+    backgroundColor: "#ffccff",
+    borderRadius: 5,
+  },
+  deleteButtonText: {
+    color: "white",
   },
 });
